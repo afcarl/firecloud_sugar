@@ -1,0 +1,9 @@
+method	snapshot
+CalculateTargetCoverage	14
+CallSomaticCNV	12
+CreatePanelOfNormalsGATK	8
+DepthOfCov	9
+DepthOfCovQC	3
+Mutect2TumorOnly	53
+PlotSomaticCNVMaps	13
+TSCAPipeline	4

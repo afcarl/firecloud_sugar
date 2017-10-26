@@ -1,0 +1,2 @@
+method_config	method_name	snapshot	entity
+SomaticSNVCalls	SomaticSNVCalls	1	sample

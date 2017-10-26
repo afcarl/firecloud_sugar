@@ -1,0 +1,25 @@
+Cancer Cell Line Factory (CCLF) / Andy Aguirre/Kulke (DFCI) - Pancreas	COHORT_AA
+Cancer Cell Line Factory (CCLF) / Adam Bass/Kulke (DFCI) - Esophageal, Gastric	COHORT_AB
+Cancer Cell Line Factory (CCLF) / Jochen Lorch (DFCI) - Head and Neck	COHORT_JL
+Cancer Cell Line Factory (CCLF) / Keith Ligon (DFCI) - Neuro	COHORT_BT
+Cancer Cell Line Factory (CCLF) / Nir Hacohen (MGH) - Colon	COHORT_NH
+Cancer Cell Line Factory (CCLF) / Hong/Crompton/Katie Janeway(DFCI) - Pediatric Tumors	COHORT_PEDS
+Cancer Cell Line Factory (CCLF) / Sabina Signoretti (DFCI) - RCC	COHORT_SS
+Cancer Cell Line Factory (CCLF) / David Tuverson (CSHL) - Pancreas	COHORT_CSHL_PDAC
+Cancer Cell Line Factory (CCLF) / Charles Yoon (DFCI) - Melanoma	COHORT_CY
+Cancer Cell Line Factory (CCLF) / Weinstock/Soiffer (DFCI) - TCell	COHORT_DW
+Cancer Cell Line Factory (CCLF) / Lisa Henske (BWH) - LAM, rare diseases	COHORT_EH
+Cancer Cell Line Factory (CCLF) / Hui Gao (NIBRI) - PDX Collection	COHORT_HG
+Cancer Cell Line Factory (CCLF) / Sid Puram/Derrick Lin (MGH MEEI) - HNSCC	COHORT_SP
+Cancer Cell Line Factory (CCLF) / Nabeel Bardeesy (MGH) - Cholangiocarcinoma	COHORT_NB
+Cancer Cell Line Factory (CCLF) / Brian McSteen (RCRF) - Rare Cancers	COHORT_CCLF_RCRF
+Cancer Cell Line Factory (CCLF) / Brian Wolpin (DFCI) - Colon (GI)	COHORT_COLO
+Cancer Cell Line Factory (CCLF) / Eli Van Allen/Joaquim Bellmunt (DFCI) - Bladder	COHORT_TC
+Cancer Cell Line Factory (CCLF) / Eli Van Allen/ Toni Choueiri (DFCI) - Kidney	COHORT_TC
+Cancer Cell Line Factory (CCLF) / Jesse Boehm (Broad Institute) - Onboarding New Cell Lines	COHORT_JB
+Cancer Cell Line Factory (CCLF) / David Sidransky (Champions Oncology) - PDX	COHORT_CO
+Cancer Cell Line Factory (CCLF) / Mark Rubin/Beltran (Cornell) - Mix Cancers	COHORT_PM
+Cancer Cell Line Factory (CCLF) / Adam Kibel/Phil Kantoff (DFCI) - Primary Prostate (GU)	COHORT_GG
+Cancer Cell Line Factory (CCLF) / Ewa Sicinska (DFCI) - Sarcoma	COHORT_EW
+Cancer Cell Line Factory (CCLF) / Calvin Kuo (Stanford) - Colon	COHORT_JNT
+Cancer Cell Line Factory (CCLF) / Mary-Ellen Taplin (DFCI) - Metastatic Prostate	COHORT_PK

@@ -1,0 +1,6 @@
+membership:sample_set_id	sample_id
+CumPon5	PEDS063-Normal-SM-F67EX
+CumPon5	PEDS168-Normal-SM-D4L28
+CumPon5	PEDS209-Normal-SM-E7S1H
+CumPon5	CCLF_SS1002-Normal-SM-DNUMI
+CumPon5	EH019-Normal-SM-DHZ8I
