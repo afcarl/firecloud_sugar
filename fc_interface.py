@@ -10,6 +10,9 @@ import glob
 
 blacklist = ["DW039-Tumor-SM-DB2IF"]
 
+################################################
+### Delete Functions
+##################################################
 def delete_sample(namespace, workspace, sample_id):
 	"""Delete sample from workspace/namespace
 	Args: 
@@ -69,6 +72,9 @@ def delete_entity_attributes(namespace, workspace, entity_type, entity_name, att
     res = firecloud_api.update_entity(namespace, workspace, entity_type, entity_name, attr_update)
     return res
 
+################################################
+### Helper Functions
+###############################################
 def upload_entities_from_tsv(namespace, workspace, entities_tsv_file):
     """Upload entities from tsv file
     Args: 
@@ -80,9 +86,6 @@ def upload_entities_from_tsv(namespace, workspace, entities_tsv_file):
     res = firecloud_api.upload_entities_tsv(namespace, workspace, entities_tsv=entities_tsv_file)
     return res
 
-################################################
-### Get functions
-################################################
 def get_sample_by_id(sample_id):
     """Get sample given its sample_id
     Args:
@@ -119,6 +122,41 @@ def create_panel_of_normals(paths, N, name):
 
     return data
 
+def create_panel_of_normals_from_batch(batch_id, paths_to_samples_info, N=20):
+    """Create panel of normals with samples from a given batch. Add N random samples from other batches.
+    Args:
+        batch_id: (int) batch_id of batch in question
+        paths_to_samples_info: .xlsx file containing paths to files containing sample_info
+        N: (int) number of samples in panel of normals
+    Returns: 
+        pon: pon df
+        name: pon name
+    """
+
+    paths_to_samples = pd.read_excel(paths_to_samples_info, index_col=0)
+    path_to_samples_info  = paths_to_samples.loc[batch_id, 'path_to_samples_info']
+    all_samples = pd.read_table(path_to_samples_info)
+    normal_samples = all_samples[all_samples['sample_type'] == "Normal"]
+
+    # Iterate over batches except the one in question (to select N random normal samples from them)
+    dfs = []
+    for i, row in paths_to_samples.loc[~paths_to_samples.index.isin([batch_id])].iterrows():
+        df_tmp = pd.read_table(row['path_to_samples_info'])
+        dfs.append(df_tmp)
+    df = pd.concat(dfs, axis=0)
+
+    other_normal_samples = df[df['sample_type'] == "Normal"].sample(N)
+    
+    name = 'PoN_%s_plus_%s_random' %(batch_id, N)
+    pon = pd.concat([normal_samples, other_normal_samples], axis=0)
+    pon['membership:sample_set_id'] = name
+    pon = pon[['membership:sample_set_id', 'sample_id']]
+
+    return pon, name
+
+################################################
+### Upload Functions
+################################################
 def upload_cohort_all_tumors(paths_to_samples_info, google_bucket_id, name, namespace, workspace, blacklist=[]):
     """Create and upload cohort of all tumor samples across all batches
     Args: 
@@ -162,38 +200,6 @@ def upload_cohort_all_samples(paths_to_samples_info, google_bucket_id, name, nam
     res = upload_entities_from_tsv(namespace, workspace, 'all_samples/fc_upload_%s.txt'%name)
     return res
 
-def create_panel_of_normals_from_batch(batch_id, paths_to_samples_info, N=20):
-    """Create panel of normals with samples from a given batch. Add N random samples from other batches.
-    Args:
-        batch_id: (int) batch_id of batch in question
-        paths_to_samples_info: .xlsx file containing paths to files containing sample_info
-        N: (int) number of samples in panel of normals
-    Returns: 
-        pon: pon df
-        name: pon name
-    """
-
-    paths_to_samples = pd.read_excel(paths_to_samples_info, index_col=0)
-    path_to_samples_info  = paths_to_samples.loc[batch_id, 'path_to_samples_info']
-    all_samples = pd.read_table(path_to_samples_info)
-    normal_samples = all_samples[all_samples['sample_type'] == "Normal"]
-
-    # Iterate over batches except the one in question (to select N random normal samples from them)
-    dfs = []
-    for i, row in paths_to_samples.loc[~paths_to_samples.index.isin([batch_id])].iterrows():
-        df_tmp = pd.read_table(row['path_to_samples_info'])
-        dfs.append(df_tmp)
-    df = pd.concat(dfs, axis=0)
-
-    other_normal_samples = df[df['sample_type'] == "Normal"].sample(N)
-    
-    name = 'PoN_%s_plus_%s_random' %(batch_id, N)
-    pon = pd.concat([normal_samples, other_normal_samples], axis=0)
-    pon['membership:sample_set_id'] = name
-    pon = pon[['membership:sample_set_id', 'sample_id']]
-
-    return pon, name
-
 def upload_pon(pon_df, pon_name, namespace, workspace):
     """Upload PoN to FC
     Args:
@@ -206,8 +212,6 @@ def upload_pon(pon_df, pon_name, namespace, workspace):
     res = upload_entities_from_tsv(namespace, workspace, 'PoNs/fc_upload_PoN_%s.txt'%pon_name)
     return res
 
-    res = fc_interface.upload_entities_from_tsv(namespace, workspace, cohorts_sample_set_metadata)
-
 def upload_cohorts(namespace, workspace, tsca_id):
     """Upload cohort metadata to FC
     Args: 
@@ -215,6 +219,37 @@ def upload_cohorts(namespace, workspace, tsca_id):
     """
     cohorts_sample_set_metadata = "cohort_files/fc_upload_sample_set_cohorts_%s.txt"%tsca_id
     res = upload_entities_from_tsv(namespace, workspace, cohorts_sample_set_metadata)
+    return res
+
+def upload_pairs(namespace, workspace, pairs):
+    """Updates pairs to firecloud. 
+    NOTE: All pairs need to be updated with every new batch,
+    as it may contain match normals or primary matches for previous batches.
+    Args:
+        - pairs: df of all pairs, as created by create_pairs_list
+    Returns: 
+        - res: json response from http request
+    Creates: 
+        - ./Pairs/fc_upload_pairs.txt file
+    """
+    os.system('mkdir -p Pairs')
+    filename = './Pairs/fc_upload_pairs.txt'
+    pairs.to_csv(filename, '\t', index=False)
+    res = upload_entities_from_tsv(namespace, workspace, filename)
+    return res
+
+def upload_pairsets(namespace, workspace, pairsets, pairset_type):
+    os.system('mkdir -p Pairs')
+    filename = './Pairs/fc_upload_pairsets_%s.txt'%pairset_type
+    pairsets.to_csv(filename, '\t', index=False)
+    res = upload_entities_from_tsv(namespace, workspace, filename)
+    return res
+
+def upload_cohort_pairsets(namespace, workspace, pairsets):
+    os.system('mkdir -p Pairs')
+    filename = './Pairs/fc_upload_cohort_pairsets.txt'
+    pairsets.to_csv(filename, '\t', index=False)
+    res = upload_entities_from_tsv(namespace, workspace, filename)
     return res
 
 ################################################
@@ -241,19 +276,30 @@ def get_samples_multiple_batches(paths_to_samples_info, google_bucket_id, sublis
     all_samples = pd.concat(df_list, axis=0)
     return all_samples
 
-def merge_walkupseq_files(paths_to_batches_info):
-    """Merge all walkupseq files in the walkupseq directory
+def get_all_samples_with_cohort(latest_tsca_id, paths_to_batches_info, google_bucket_id):
+    """Retrieve df with all samples, including the cohort code they belong to
     """
-    paths_to_batches_info = glob.glob('walkupseq_files/*sample_info*')
+    # Retrieve list of samples with corresponding cohort from bsp.broadinstitute.org
+    samples_with_cohort = pd.read_excel('cohort_files/bsp_latest_all_samples_%s.xls'%latest_tsca_id)
 
-    dfs = []
-    for f in paths_to_batches_info:
-        tmp = pd.read_table(f, encoding='latin1')
-        dfs.append(tmp)
+    # All samples, without cohort data
+    all_samples = get_samples_multiple_batches(paths_to_batches_info, google_bucket_id)
 
-    df = pd.concat(dfs, axis=0)
-    df.to_csv('walkupseq_files/walkupseq_all_combined.txt', sep="\t", index=None)
-    return df
+    # Add cohort data to all samples
+    data = pd.merge(all_samples, samples_with_cohort[['Sample ID', 'Collection']], \
+                     left_on='bsp_sample_id_validation', \
+                     right_on='Sample ID', \
+                     how='inner') \
+                    .drop(['Sample ID'], axis=1)
+
+    # FC doesn't accept cohort names with non-alphanumeric characters, so use cohort codes instead
+    # Load dictionary of {long cohort name : short cohort code}
+    cohort_formatted_names = pd.read_table('cohort_files/cohort_names_dictionary.txt', \
+                                           header=None, names=['Collection', 'cohort_code'])
+
+    # Add cohort codes to data
+    data = pd.merge(data, cohort_formatted_names, on='Collection', how='outer')
+    return data
 
 def download_remote_samples(namespace, workspace):
     """Download remote samples from Firecloud
@@ -264,6 +310,15 @@ def download_remote_samples(namespace, workspace):
     with open('remote_samples.txt', 'w') as outfile:
         outfile.write(res.text)
     return
+
+def download_remote_pairs(namespace, workspace):
+    """Download remote pairs from Firecloud
+    """
+    res = firecloud_api.get_entities_tsv(namespace, workspace, "pair")
+    with open('./Pairs/remote_pairs.txt', 'w') as outfile:
+        outfile.write(res.text)
+    return
+
 ################################################
 ### Pairs Functions
 ################################################s
@@ -292,9 +347,9 @@ def create_pairs_list(all_samples):
             control_sample_tsca_id = "NA"
         #   > Match normal found
         elif match_normal.shape[0] > 0:
-            match_normal = match_normal.sample(n=1)
-            control_sample_id = match_normal['entity:sample_id'].item()
-            control_sample_tsca_id = match_normal['tsca_id'].item()
+            match_normal = match_normal.iloc[0]
+            control_sample_id = match_normal['entity:sample_id']
+            control_sample_tsca_id = match_normal['tsca_id']
         
         # Create DF with Tumor/Normal pair set
         pair_id = "%s_%s_TN" % (row['entity:sample_id'], control_sample_id)
@@ -306,16 +361,16 @@ def create_pairs_list(all_samples):
         
         ######## Tumor tissue: Add primary tumor tissue
         match_primary_tumor = patient_samples[ patient_samples['external_id_validation'] \
-                                              .str.contains('primary|prim|tissue|tiss') ]
+                                              .str.contains('primary|prim|tissue|tiss|Primary') ]
         #    > No primary tumor tissue found
         if match_primary_tumor.empty: 
             control_sample_id = "NA"
             control_sample_tsca_id = "NA"
         #    > Tumor tissue found
         elif match_primary_tumor.shape[0] > 0:
-            match_primary_tumor = match_primary_tumor.sample(n=1)
-            control_sample_id = match_primary_tumor['entity:sample_id'].item()
-            control_sample_tsca_id = match_primary_tumor['tsca_id'].item()
+            match_primary_tumor = match_primary_tumor.iloc[0]
+            control_sample_id = match_primary_tumor['entity:sample_id']
+            control_sample_tsca_id = match_primary_tumor['tsca_id']
         
         # Create DF with Tumor/Primary pair set
         pair_id = "%s_%s_TP" % (row['entity:sample_id'], control_sample_id)
@@ -326,23 +381,6 @@ def create_pairs_list(all_samples):
         i+=1
    
     return pd.concat(dfs, axis=0)
-
-def upload_pairs(namespace, workspace, pairs):
-    """Updates pairs to firecloud. 
-    NOTE: All pairs need to be updated with every new batch,
-    as it may contain match normals or primary matches for previous batches.
-    Args:
-        - pairs: df of all pairs, as created by create_pairs_list
-    Returns: 
-        - res: json response from http request
-    Creates: 
-        - ./Pairs/fc_upload_pairs.txt file
-    """
-    os.system('mkdir -p Pairs')
-    filename = './Pairs/fc_upload_pairs.txt'
-    pairs.to_csv(filename, '\t', index=False)
-    res = upload_entities_from_tsv(namespace, workspace, filename)
-    return res
 
 def update_pair_attrs(namespace, workspace, pairs, attrs):
     """Update the FC (remote) pair attributes, listed in @attrs, present in the @pairs dataframe.
@@ -383,13 +421,6 @@ def create_pairsets(all_samples, pairs):
     tp_pairsets['membership:pair_set_id'] = tp_pairsets['membership:pair_set_id'].apply(lambda x: "%s_TP"%x)
     
     return (tn_pairsets, tp_pairsets)
-
-def upload_pairsets(namespace, workspace, pairsets, pairset_type):
-    os.system('mkdir -p Pairs')
-    filename = './Pairs/fc_upload_pairsets_%s.txt'%pairset_type
-    pairsets.to_csv(filename, '\t', index=False)
-    res = upload_entities_from_tsv(namespace, workspace, filename)
-    return res
 
 ################################################
 ### Preparations for FC export
@@ -544,6 +575,62 @@ def prepare_all_data_for_metadata_export(tsca_id, path_to_batch_samples_info, pa
     prepare_cohorts_for_metadata_export(paths_to_batches_info, google_bucket_id)
     return
 
+def prepare_pairs_for_metadata_exports(paths_to_samples_info, tsca_id, google_bucket_id, blacklist):
+    """Prepare the pairs df for export to FC. Ensures no duplicates are uploaded
+    Args:
+        - Self-explanatory
+    Returns: 
+        - DF of pairs
+    """
+    # Gather all samples
+    all_samples = get_samples_multiple_batches(paths_to_samples_info, google_bucket_id)
+    # Create list of pairs
+    pairs_list = create_pairs_list(all_samples)
+    # Filter blacklist
+    blacklist = ["DW039-Tumor-SM-DB2IF"]
+    clean_pairs_list = pairs_list[ ~pairs_list['case_sample_id'].isin(blacklist)]
+
+    # Samples in new batch
+    samples_new_batch = pd.read_table("%s/fc_upload_sample_set_tsca_%s.txt"%(tsca_id, tsca_id))
+    # Sample IDs in new batch
+    new_batch_sample_ids = samples_new_batch.sample_id.tolist()
+    
+    # Only upload new pairs. 
+    # New pairs are pairs that have a sample from the new batch as either a sample or control.
+    clean_pairs_list = clean_pairs_list[ clean_pairs_list['case_sample_id'].isin(new_batch_sample_ids) | \
+                                       clean_pairs_list['control_sample_id'].isin(new_batch_sample_ids)]
+    
+    return clean_pairs_list
+
+def prepare_cohort_pairsets_for_metadata_exports(latest_tsca_id, blacklist, paths_to_samples_info, google_bucket_id):
+    """Create DF with cohort pairsets, used to create cohort reports for SNVs.
+    IMPORTANT NOTE: The pair list is downloaded from FC, rather than taken from the `create_pairs_list` function. 
+    The reason for this is that the pairs in FC (remote pairs) were created with match normals and match primaries chosen at random
+    whenever there were two samples available as an option (2 potential match normals, or 2 potential match primaries).
+    This was fixed in 11/1/2017, but it's impossible to replicate the random selection. Therefore, we must download the remote samples already
+    uploaded.
+    Returns: 
+        - DF with [cohort_code, pair_id]
+    """
+    # Download remote pairs
+    download_remote_pairs(namespace, workspace)
+    # Retrieve pairs
+    pairs = pd.read_table('Pairs/remote_pairs.txt')
+    # Get all samples with cohort
+    all_samples = get_all_samples_with_cohort(tsca_id, paths_to_samples_info, google_bucket_id)
+    # Filter blacklist
+    blacklist = ["DW039-Tumor-SM-DB2IF"]
+    # Create list of pairs
+    clean_pairs_list = pairs[ ~pairs['case_sample'].isin(blacklist)]
+    # Add cohorts to pairs
+    pairs_with_cohort = pd.merge(clean_pairs_list, all_samples[['entity:sample_id', 'cohort_code']], \
+             left_on='case_sample', right_on='entity:sample_id')
+    # Prepare DF for FC export
+    pairs_with_cohort_clean = pairs_with_cohort[['cohort_code', 'entity:pair_id']] \
+        .rename(columns={'entity:pair_id': 'pair_id', 'cohort_code': 'membership:pair_set_id'})
+
+    return pairs_with_cohort_clean
+
 ################################################
 ### Prepare metadata
 # These functions prepare the walkupseq and BSP metadata
@@ -564,6 +651,20 @@ def update_walkup_sheets(tsca_id):
     fname = "/Users/mimoun/production_fc/metadata_exports/walkupseq_files/walkupseq_all_combined_%s.txt"%tsca_id
     combined.to_csv(fname, sep="\t", index=None)
     return combined
+
+def merge_walkupseq_files(paths_to_batches_info):
+    """Merge all walkupseq files in the walkupseq directory
+    """
+    paths_to_batches_info = glob.glob('walkupseq_files/*sample_info*')
+
+    dfs = []
+    for f in paths_to_batches_info:
+        tmp = pd.read_table(f, encoding='latin1')
+        dfs.append(tmp)
+
+    df = pd.concat(dfs, axis=0)
+    df.to_csv('walkupseq_files/walkupseq_all_combined.txt', sep="\t", index=None)
+    return df
 
 ################################################
 ### Export batch metadata to FC
